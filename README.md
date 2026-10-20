@@ -18,7 +18,7 @@ It's always there, and it's one row:
 
     FUEL ▰▰▰▰▰▰▱▱ 74% │ 5h 26% clear · resets in 52m │ wk 50% → 74% │ ● 47:12
 
-- **Fuel** is the context you have left. It starts at 100% and counts down, so it goes from green to amber to red as the conversation fills up.
+- **Fuel** is the context you have left before Claude Code compacts the conversation. If you set an auto-compact point (`autoCompactWindow` in your settings), the tank ends there; if not, it's the model's full window. It starts at 100% and counts down, so it goes from green to amber to red as the conversation fills up.
 - **5h** is your 5-hour limit, and next to it is whether the pace so far gets you to the reset or runs into the wall first ("wall in 24m").
 - **wk** is your weekly limit, and the number after the arrow is where you finish the week if you keep going at the pace so far.
 - **●** is the prompt cache. Every reply keeps it warm for a while (an hour or five minutes, depending on your setup), and Dash counts that down.
@@ -30,7 +30,7 @@ The line changes when something needs you. In the cache's last two minutes it tu
 It opens by itself in the desktop app. In the terminal, type `/dash`.
 
 - Five cache lights that go out as the time runs down, with a big countdown under them.
-- The fuel bar, with the tokens you have left.
+- The fuel bar, with the tokens you have left before auto-compact.
 - A dial each for the 5-hour and weekly limits. The orange needle is where you are now, and on the weekly dial the dashed blue needle is where this pace ends the week.
 - At a pit call, a red card with the same Handoff button.
 
@@ -47,7 +47,7 @@ Dash takes how much of the window you've used and how long the window has been r
 
 ## What it touches
 
-Dash only reads. It reads the usage numbers Claude Code already reports (context and limits) and the cache details on each reply. It sends nothing anywhere and changes no settings, and the only thing it ever writes is the text the Handoff button puts in your prompt.
+Dash only reads. It reads the usage numbers Claude Code already reports (context, limits and the auto-compact point) and the cache details on each reply. It sends nothing anywhere and changes no settings, and the only thing it ever writes is the text the Handoff button puts in your prompt.
 
 ## Credit
 

@@ -5,6 +5,8 @@ export type Reading = {
   /** Tokens in the context now; null before the first response reports it. */
   ctxTokens: number | null
   ctxWindow: number
+  /** Where Claude Code compacts the conversation: the auto-compact point, or the window; null when unknown. */
+  ctxLimit: number | null
   limits: Limit[]
 }
 

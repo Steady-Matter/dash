@@ -9,9 +9,14 @@ const iso = (ms: number) => new Date(ms).toISOString()
 // ---------------------------------------------------------------- the math
 
 test('fuel is the context still free, counting down from 100', () => {
-  expect(fuelOf({ ctxTokens: 0, ctxWindow: 200_000, limits: [] })).toBe(100)
-  expect(fuelOf({ ctxTokens: 44_000, ctxWindow: 200_000, limits: [] })).toBe(78)
-  expect(fuelOf({ ctxTokens: null, ctxWindow: 200_000, limits: [] })).toBeNull()
+  expect(fuelOf({ ctxTokens: 0, ctxWindow: 200_000, ctxLimit: null, limits: [] })).toBe(100)
+  expect(fuelOf({ ctxTokens: 44_000, ctxWindow: 200_000, ctxLimit: null, limits: [] })).toBe(78)
+  expect(fuelOf({ ctxTokens: null, ctxWindow: 200_000, ctxLimit: null, limits: [] })).toBeNull()
+})
+
+test('with an auto-compact point set, fuel runs out there, not at the model window', () => {
+  expect(fuelOf({ ctxTokens: 265_000, ctxWindow: 1_000_000, ctxLimit: 500_000, limits: [] })).toBe(47)
+  expect(fuelOf({ ctxTokens: 520_000, ctxWindow: 1_000_000, ctxLimit: 500_000, limits: [] })).toBe(0)
 })
 
 test('pace: 91% four hours into the 5-hour window hits the wall before the reset', () => {
@@ -124,5 +129,15 @@ test('the cache warning takes over the line in its last two minutes, then it rea
   const after = JSON.stringify(await ui.drawn({ in: 'dash-line' }))
   expect(after).toContain('○ cold')
   expect(after).toContain('58%')
+  await ui.unmount()
+})
+
+test('the panel reads the compact point from Claude Code and says so', async ($, on) => {
+  engine(on)
+  on('session.usage', () => ({ value: { context: { window: 1_000_000, tokens: 265_000, breakdown: { rawMaxTokens: 500_000 } }, rateLimits: [] } }) as never)
+  await $.session.measure({ context: { window: 1_000_000, tokens: 265_000, percent: 27 }, rateLimits: [], changed: ['context'] } as never)
+  const ui = await $.ui.mount({ ...pane(48), surface: 'desktop' })
+  const svg = await ui.find({ type: 'Svg' } as never)
+  expect(String(svg?.props.alt)).toBe('Fuel 47%: 235k of 500k left before auto-compact')
   await ui.unmount()
 })

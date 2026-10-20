@@ -14,6 +14,7 @@ import {
   fiveHourWords,
   fmtClock,
   fmtSpan,
+  fuelCap,
   fuelOf,
   fuelTone,
   kTokens,
@@ -38,11 +39,25 @@ const cache = atom({ plugin: 'dash', key: 'cache' } as const, DEFAULT_CACHE)
 
 const getCache = async ($: EngineInterface) => normalizeCache(await read($, cache))
 
-const readingOf = (u: { context: { tokens?: number; window: number }; rateLimits: { kind: string; percentUsed: number; resetsAt?: string }[] }): Reading => ({
+const readingOf = (
+  u: { context: { tokens?: number; window: number }; rateLimits: { kind: string; percentUsed: number; resetsAt?: string }[] },
+  ctxLimit: number | null,
+): Reading => ({
   ctxTokens: u.context.tokens ?? null,
   ctxWindow: u.context.window,
+  ctxLimit,
   limits: u.rateLimits.map(l => ({ kind: l.kind, percentUsed: l.percentUsed, resetsAt: l.resetsAt })),
 })
+
+/**
+ * The context the conversation can fill before Claude Code compacts it: the auto-compact point
+ * when one is set below the model's window, else the window. The summary breakdown is counted
+ * on this machine, so asking sends nothing.
+ */
+async function compactWindow($: EngineInterface): Promise<number | null> {
+  const u = await $.session.usage({ breakdown: 'summary' }).catch(() => null)
+  return u?.context.breakdown?.rawMaxTokens ?? null
+}
 
 async function openPane($: EngineInterface) {
   return $.ui.open({ id: PANE, title: TITLE, columns: PANE_COLUMNS, rows: 10 })
@@ -76,8 +91,8 @@ async function gauges($: EngineInterface) {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'dash', description: 'Dash: open or close the gauges panel', argumentHint: '[open|close]' })
-    const u = await $.session.usage().catch(() => null)
-    if (u) await update($, reading, () => readingOf(u))
+    const [u, limit] = await Promise.all([$.session.usage().catch(() => null), compactWindow($)])
+    if (u) await update($, reading, () => readingOf(u, limit))
     // The app gets the panel from the start; the terminal opens it on /dash.
     if (e.surface !== 'terminal' && (await $.session.surfaces()).length > 0) void openPane($).catch(() => undefined)
     return next(e)
@@ -107,7 +122,10 @@ export const register: Register = on => {
 
   // Every new usage figure: the context fill, a limit moving a point.
   on('session.measure', async ($, e, next) => {
-    await update($, reading, () => readingOf(e))
+    // The compact point is read again only when it is unknown or the model's window changed.
+    const prev = await read($, reading)
+    const limit = prev && prev.ctxLimit && prev.ctxWindow === e.context.window ? prev.ctxLimit : await compactWindow($)
+    await update($, reading, () => readingOf(e, limit))
     return next(e)
   })
 
@@ -202,7 +220,11 @@ export const register: Register = on => {
     const W = Math.max(32, e.props.bodyColumns)
     const hasSvg = e.surface !== 'terminal' && 'Svg' in els
     const hasClient = 'Client' in els
-    const tokensLeft = g.r && g.r.ctxTokens !== null ? `${kTokens(Math.max(0, g.r.ctxWindow - g.r.ctxTokens))} of ${kTokens(g.r.ctxWindow)} tokens left` : ''
+    const tank = g.r ? fuelCap(g.r) : 0
+    const tokensLeft =
+      g.r && g.r.ctxTokens !== null
+        ? `${kTokens(Math.max(0, tank - g.r.ctxTokens))} of ${kTokens(tank)} left${tank < g.r.ctxWindow ? ' before auto-compact' : ' tokens'}`
+        : ''
 
     const cacheBlock =
       g.expiresAt === 0 ? (

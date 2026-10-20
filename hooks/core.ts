@@ -13,9 +13,12 @@ export const DEFAULT_CACHE: Cache = { lastRequestAt: 0, ttlMs: 3_600_000 }
 /** Theme keys, so the text follows the person's light or dark theme. */
 export const C = { good: 'success', amber: 'warning', bad: 'error', dim: 'inactive', faint: 'subtle', text: 'text', cool: 'suggestion' } as const
 
-/** Fuel is the context still free, 100 at the start of a session and falling. */
+/** The tank: the auto-compact point when it sits below the model's window, else the window. */
+export const fuelCap = (r: Reading) => (r.ctxLimit && r.ctxLimit > 0 ? Math.min(r.ctxLimit, r.ctxWindow) : r.ctxWindow)
+
+/** Fuel is the context still free before compaction, 100 at the start of a session and falling. */
 export const fuelOf = (r: Reading | null): number | null =>
-  r && r.ctxTokens !== null && r.ctxWindow > 0 ? Math.max(0, Math.min(100, Math.round(100 - (100 * r.ctxTokens) / r.ctxWindow))) : null
+  r && r.ctxTokens !== null && fuelCap(r) > 0 ? Math.max(0, Math.min(100, Math.round(100 - (100 * r.ctxTokens) / fuelCap(r)))) : null
 
 export type Tone = 'good' | 'amber' | 'bad'
 export const fuelTone = (f: number): Tone => (f <= PIT_AT ? 'bad' : f <= 45 ? 'amber' : 'good')

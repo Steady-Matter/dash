@@ -1,6 +1,6 @@
 {
   "name": "dash",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Dash: a car dash for Claude Code by Steady Matter. Fuel (context left), the 5-hour and weekly limits with where the pace ends, and the prompt cache as a countdown. One line above the prompt, gauges in a side panel.",
   "author": {
     "name": "Steady Matter",
