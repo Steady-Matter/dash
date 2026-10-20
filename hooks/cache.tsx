@@ -1,9 +1,10 @@
 // The side panel's cache: five shift lights that go out as the hour runs down, a big countdown,
-// and what the next message costs. Ticks on the surface's own clock.
+// and what the next message costs. Counts from the real clock: the app rebuilds this widget from
+// its last props when the chat is reopened, and those props' time may be hours old.
 import type { ClientModule } from 'claude-code'
 
-type Props = { expiresAt: number; now: number; ttlMs: number; reread: string; warnMs: number }
-type Ref = { left: number; lastNow: number; blink: boolean }
+type Props = { expiresAt: number; ttlMs: number; reread: string; warnMs: number }
+type Ref = { mountedAt: number; ticks: number; blink: boolean }
 type State = { ref: Ref }
 
 const fmt = (ms: number) => {
@@ -15,25 +16,21 @@ const fmt = (ms: number) => {
 
 const Cache: ClientModule<Props, State> = (props, surface) => {
   const { Box, Text } = surface.elements
-  const ref = surface.state?.ref ?? { left: 0, lastNow: -1, blink: false }
-  if (props.now !== ref.lastNow) {
-    ref.lastNow = props.now
-    ref.left = props.expiresAt - props.now
-  }
+  const ref = surface.state?.ref ?? { mountedAt: Date.now(), ticks: 0, blink: false }
   if (surface.state === undefined) {
     surface.setState({ ref })
     surface.every(1000, () => {
-      if (ref.left > 0) {
-        ref.left -= 1000
-        ref.blink = !ref.blink
-        surface.setState({ ref })
-      }
+      ref.ticks += 1
+      ref.blink = !ref.blink
+      surface.setState({ ref })
     })
   }
-  const isCold = ref.left <= 0
-  const isWarn = !isCold && ref.left <= props.warnMs
-  const color = isCold ? 'suggestion' : isWarn ? 'error' : ref.left <= 600_000 ? 'warning' : 'success'
-  const lit = isCold ? 0 : Math.max(1, Math.ceil((5 * ref.left) / props.ttlMs))
+  // The later of the real clock and the frame clock (which the tests move).
+  const left = props.expiresAt - Math.max(Date.now(), ref.mountedAt + ref.ticks * 1000)
+  const isCold = left <= 0
+  const isWarn = !isCold && left <= props.warnMs
+  const color = isCold ? 'suggestion' : isWarn ? 'error' : left <= 600_000 ? 'warning' : 'success'
+  const lit = isCold ? 0 : Math.max(1, Math.ceil((5 * left) / props.ttlMs))
   // Under the warning the lit lights blink once a second.
   const lights = Array.from({ length: 5 }, (_, i) => (i < lit && !(isWarn && ref.blink) ? '●' : '○')).join(' ')
   const sub = isCold ? `Cold. The next message re-reads ${props.reread}` : isWarn ? 'Send soon or it goes cold' : 'Warm. The next message is cheap'
@@ -42,7 +39,7 @@ const Cache: ClientModule<Props, State> = (props, surface) => {
       <Text color="inactive" size="caption" weight="semibold">CACHE</Text>
       <Text color={litColor(color, lit)}>{lights}</Text>
       <Text size="title" weight="semibold" tabular color={isCold ? 'suggestion' : isWarn ? 'error' : 'text'}>
-        {isCold ? 'COLD' : fmt(ref.left)}
+        {isCold ? 'COLD' : fmt(left)}
       </Text>
       <Text color="inactive" size="footnote" wrap="wrap">{sub}</Text>
     </Box>

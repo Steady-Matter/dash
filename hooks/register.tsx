@@ -193,7 +193,6 @@ export const register: Register = on => {
       h5: seg(g.h5, g.h5w),
       wk: seg(g.wk, g.wkw),
       expiresAt: g.expiresAt,
-      now: g.now,
       reread: g.reread,
       warnMs: WARN_MS,
     }
@@ -236,7 +235,7 @@ export const register: Register = on => {
       g.expiresAt === 0 ? (
         <Text color={C.faint} wrap="wrap">The cache countdown starts with Claude's first reply.</Text>
       ) : hasClient ? (
-        <els.Client key="dash-cache" module="./cache.tsx" props={{ expiresAt: g.expiresAt, now: g.now, ttlMs: g.ttlMs, reread: g.reread, warnMs: WARN_MS }} />
+        <els.Client key="dash-cache" module="./cache.tsx" props={{ expiresAt: g.expiresAt, ttlMs: g.ttlMs, reread: g.reread, warnMs: WARN_MS }} />
       ) : (
         <Text color={C.dim}>{g.expiresAt > g.now ? `Cache ● ${fmtClock(g.expiresAt - g.now)}` : `Cache ○ cold · next message re-reads ${g.reread}`}</Text>
       )

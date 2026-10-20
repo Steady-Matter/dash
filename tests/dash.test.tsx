@@ -3,7 +3,8 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { fiveHourWords, fuelOf, paceOf, weeklyWords } from '../hooks/core'
 
-const NOW = Date.parse('2026-10-20T15:00:00Z')
+// The real clock: the widgets count from it, and the test's frame clock moves on from it.
+const NOW = Date.now()
 const iso = (ms: number) => new Date(ms).toISOString()
 
 // ---------------------------------------------------------------- the math

@@ -1,5 +1,6 @@
-// The line above the prompt, ticking on the surface's own clock so the cache countdown stays right
-// while nothing else redraws. Its readings come from the hooks module; it only counts the cache down.
+// The line above the prompt, ticking so the cache countdown stays right while nothing else redraws.
+// Its readings come from the hooks module; it only counts the cache down, from the real clock: the
+// app rebuilds this widget from its last props when the chat is reopened, and that time may be old.
 import type { ClientModule } from 'claude-code'
 
 type Seg = { pct: number; color: string; words: string; wordsColor: string }
@@ -12,12 +13,11 @@ type Props = {
   wk: Seg | null
   /** When the cache goes cold; 0 before the first request. */
   expiresAt: number
-  now: number
   /** What a cold cache re-reads, as words: "92k tokens". */
   reread: string
   warnMs: number
 }
-type Ref = { left: number; lastNow: number }
+type Ref = { mountedAt: number; ticks: number }
 type State = { ref: Ref }
 
 const fmt = (ms: number) => {
@@ -29,21 +29,16 @@ const fmt = (ms: number) => {
 
 const Line: ClientModule<Props, State> = (props, surface) => {
   const { Box, Text } = surface.elements
-  const ref = surface.state?.ref ?? { left: 0, lastNow: -1 }
-  if (props.now !== ref.lastNow) {
-    // A fresh reading from the hooks module: restart the local count from it.
-    ref.lastNow = props.now
-    ref.left = props.expiresAt > 0 ? props.expiresAt - props.now : 0
-  }
+  const ref = surface.state?.ref ?? { mountedAt: Date.now(), ticks: 0 }
   if (surface.state === undefined) {
     surface.setState({ ref })
     surface.every(1000, () => {
-      if (ref.left > 0) {
-        ref.left -= 1000
-        surface.setState({ ref })
-      }
+      ref.ticks += 1
+      surface.setState({ ref })
     })
   }
+  // The later of the real clock and the frame clock (which the tests move).
+  const left = props.expiresAt > 0 ? props.expiresAt - Math.max(Date.now(), ref.mountedAt + ref.ticks * 1000) : 0
   const sep = <Text color="subtle">{' │ '}</Text>
   const fuel =
     props.fuel === null ? null : (
@@ -55,14 +50,14 @@ const Line: ClientModule<Props, State> = (props, surface) => {
       </Text>
     )
   const hasCache = props.expiresAt > 0
-  const isWarn = hasCache && ref.left > 0 && ref.left <= props.warnMs
+  const isWarn = hasCache && left > 0 && left <= props.warnMs
   // The cache is about to go cold: the middle of the line becomes the warning.
   if (isWarn) {
     return (
       <Box flexDirection="row">
         {fuel}
         {fuel ? sep : null}
-        <Text color="warning" wrap="truncate">{`▲ Send within ${fmt(ref.left)}, or the next message re-reads ${props.reread}`}</Text>
+        <Text color="warning" wrap="truncate">{`▲ Send within ${fmt(left)}, or the next message re-reads ${props.reread}`}</Text>
       </Box>
     )
   }
@@ -74,8 +69,8 @@ const Line: ClientModule<Props, State> = (props, surface) => {
         {s.words ? <Text color={s.wordsColor}>{` ${s.words}`}</Text> : null}
       </Text>
     )
-  const cacheColor = !hasCache ? 'subtle' : ref.left <= 0 ? 'suggestion' : ref.left <= 600_000 ? 'warning' : 'success'
-  const cache = hasCache ? <Text color={cacheColor}>{ref.left > 0 ? `● ${fmt(ref.left)}` : '○ cold'}</Text> : null
+  const cacheColor = !hasCache ? 'subtle' : left <= 0 ? 'suggestion' : left <= 600_000 ? 'warning' : 'success'
+  const cache = hasCache ? <Text color={cacheColor}>{left > 0 ? `● ${fmt(left)}` : '○ cold'}</Text> : null
   const items = [fuel, seg('5h', props.h5), seg('wk', props.wk), cache].filter(x => x !== null)
   return (
     <Box flexDirection="row">
