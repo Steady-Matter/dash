@@ -50,13 +50,14 @@ const readingOf = (
 })
 
 /**
- * The context the conversation can fill before Claude Code compacts it: the auto-compact point
- * when one is set below the model's window, else the window. The summary breakdown is counted
- * on this machine, so asking sends nothing.
+ * From the summary breakdown, which is counted on this machine so asking sends nothing: `limit`,
+ * the context the conversation can fill before Claude Code compacts it (the auto-compact point
+ * when one is set below the model's window, else the window), and `estimate`, the tokens already
+ * in it. The estimate stands in for fuel until the first reply reports the real count.
  */
-async function compactWindow($: EngineInterface): Promise<number | null> {
-  const u = await $.session.usage({ breakdown: 'summary' }).catch(() => null)
-  return u?.context.breakdown?.rawMaxTokens ?? null
+async function contextPlan($: EngineInterface): Promise<{ limit: number | null; estimate: number | null }> {
+  const b = (await $.session.usage({ breakdown: 'summary' }).catch(() => null))?.context.breakdown
+  return { limit: b?.rawMaxTokens ?? null, estimate: b?.totalTokens ?? null }
 }
 
 async function openPane($: EngineInterface) {
@@ -91,8 +92,11 @@ async function gauges($: EngineInterface) {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'dash', description: 'Dash: open or close the gauges panel', argumentHint: '[open|close]' })
-    const [u, limit] = await Promise.all([$.session.usage().catch(() => null), compactWindow($)])
-    if (u) await update($, reading, () => readingOf(u, limit))
+    const [u, plan] = await Promise.all([$.session.usage().catch(() => null), contextPlan($)])
+    if (u) {
+      const tokens = u.context.tokens ?? plan.estimate ?? undefined
+      await update($, reading, () => readingOf({ ...u, context: { ...u.context, tokens } }, plan.limit))
+    }
     // The app gets the panel from the start; the terminal opens it on /dash.
     if (e.surface !== 'terminal' && (await $.session.surfaces()).length > 0) void openPane($).catch(() => undefined)
     return next(e)
@@ -124,8 +128,10 @@ export const register: Register = on => {
   on('session.measure', async ($, e, next) => {
     // The compact point is read again only when it is unknown or the model's window changed.
     const prev = await read($, reading)
-    const limit = prev && prev.ctxLimit && prev.ctxWindow === e.context.window ? prev.ctxLimit : await compactWindow($)
-    await update($, reading, () => readingOf(e, limit))
+    const limit = prev && prev.ctxLimit && prev.ctxWindow === e.context.window ? prev.ctxLimit : (await contextPlan($)).limit
+    // A reading with no count yet keeps the start-up estimate.
+    const tokens = e.context.tokens ?? prev?.ctxTokens ?? undefined
+    await update($, reading, () => readingOf({ ...e, context: { ...e.context, tokens } }, limit))
     return next(e)
   })
 

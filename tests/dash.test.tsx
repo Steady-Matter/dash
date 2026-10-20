@@ -141,3 +141,19 @@ test('the panel reads the compact point from Claude Code and says so', async ($,
   expect(String(svg?.props.alt)).toBe('Fuel 47%: 235k of 500k left before auto-compact')
   await ui.unmount()
 })
+
+test('a fresh session shows fuel from the start-up estimate, before any reply', async ($, on) => {
+  engine(on)
+  on('session.usage', (_$, e) =>
+    ((e as { breakdown?: string }).breakdown
+      ? { value: { context: { window: 1_000_000, breakdown: { rawMaxTokens: 500_000, totalTokens: 50_000 } }, rateLimits: [] } }
+      : { value: { context: { window: 1_000_000 }, rateLimits: [] } }) as never,
+  )
+  on('session.start', (_$, e) => ({ cwd: (e as { cwd: string }).cwd }) as never)
+  on('command.register', () => ({ value: { command: 'dash' } }) as never)
+  on('session.surfaces', () => ({ value: [] }) as never)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...band(100), surface: 'desktop' })
+  expect(JSON.stringify(await ui.drawn({ in: 'dash-line' }))).toContain(' 90%')
+  await ui.unmount()
+})
