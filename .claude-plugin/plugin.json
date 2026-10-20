@@ -1,0 +1,12 @@
+{
+  "name": "dash",
+  "version": "0.1.0",
+  "description": "Dash: a car dash for Claude Code by Steady Matter. Fuel (context left), the 5-hour and weekly limits with where the pace ends, and the prompt cache as a countdown. One line above the prompt, gauges in a side panel.",
+  "author": {
+    "name": "Steady Matter",
+    "url": "https://github.com/Steady-Matter"
+  },
+  "license": "MIT",
+  "keywords": ["claude-code", "claude-code-mod", "claude-code-plugin", "dashboard", "usage", "context", "rate-limits", "prompt-cache"],
+  "types": "./types/index.d.ts"
+}

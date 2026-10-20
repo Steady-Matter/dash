@@ -1,0 +1,15 @@
+{
+  "name": "steady-matter-dash",
+  "description": "Dash: a car dash for Claude Code. Fuel, limit pace and the cache countdown.",
+  "owner": {
+    "name": "Steady Matter",
+    "url": "https://github.com/Steady-Matter"
+  },
+  "plugins": [
+    {
+      "name": "dash",
+      "source": "./",
+      "description": "One line above the prompt and a gauges panel: context left as fuel, the 5-hour and weekly limits with where the pace ends, and the prompt cache as a countdown."
+    }
+  ]
+}
