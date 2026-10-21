@@ -107,6 +107,10 @@ export const cacheTtlOf = (usage: unknown, previous: number): number => {
   return previous
 }
 
+/** A fork renews the cache when it was answered and read the conversation's prefix from it. */
+export const forkRenewsCache = (v: { isAnswered: boolean; usage?: { cache_read_input_tokens?: number } } | undefined) =>
+  Boolean(v?.isAnswered && (v.usage?.cache_read_input_tokens ?? 0) > 0)
+
 export const normalizeCache = (x: unknown): Cache => {
   const c = (x ?? {}) as Partial<Cache>
   return {

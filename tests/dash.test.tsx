@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { fiveHourWords, fuelOf, paceOf, weeklyWords } from '../hooks/core'
+import { fiveHourWords, forkRenewsCache, fuelOf, paceOf, weeklyWords } from '../hooks/core'
 
 // The real clock: the widgets count from it, and the test's frame clock moves on from it.
 const NOW = Date.now()
@@ -157,4 +157,11 @@ test('a fresh session shows fuel from the start-up estimate, before any reply', 
   const ui = await $.ui.mount({ ...band(100), surface: 'desktop' })
   expect(JSON.stringify(await ui.drawn({ in: 'dash-line' }))).toContain(' 90%')
   await ui.unmount()
+})
+
+test("a fork that hits the cache (Keep Warm's ping) renews the countdown; a miss or failure does not", () => {
+  expect(forkRenewsCache({ isAnswered: true, usage: { cache_read_input_tokens: 186_000 } })).toBe(true)
+  expect(forkRenewsCache({ isAnswered: true, usage: { cache_read_input_tokens: 0 } })).toBe(false)
+  expect(forkRenewsCache({ isAnswered: false })).toBe(false)
+  expect(forkRenewsCache(undefined)).toBe(false)
 })

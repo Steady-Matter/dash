@@ -14,6 +14,7 @@ import {
   fiveHourWords,
   fmtClock,
   fmtSpan,
+  forkRenewsCache,
   fuelCap,
   fuelOf,
   fuelTone,
@@ -146,6 +147,17 @@ export const register: Register = on => {
       })
     }
     return result
+  })
+
+  // A fork reads the main conversation's prefix from the cache, so a hit renews it too. Keep Warm's
+  // pings are forks: without this the countdown read cold while they kept the cache warm.
+  on('model.fork', async ($, e, next) => {
+    const r = await next(e)
+    if (forkRenewsCache(r.value)) {
+      const now = await $.clock.now()
+      await update($, cache, c => ({ ...normalizeCache(c), lastRequestAt: now }))
+    }
+    return r
   })
 
   // ---------------------------------------------------------------- the line above the prompt
